@@ -4,10 +4,10 @@ var scores = document.getElementById('score');
 
 
 class GameBoard {
-    constructor(){
+    constructor(gridSize){
         this.start = false;
         this.score = 0;
-        this.gridSize = 17;
+        this.gridSize = gridSize;
         plane.style.width = `${this.gridSize}em`;
         plane.style.height = `${this.gridSize}em`;
         this.p1 = new Player(1);
@@ -16,6 +16,7 @@ class GameBoard {
         this.grid = this.createGameBoard();
         this.getPlayerInitialPos();
         this.start = true;
+        this.end = false;
     }
 
     createPlayer(id) {
@@ -88,8 +89,12 @@ class GameBoard {
         }
         // update
         if (this.start) {
-            this.score += 1;
+            this.score = this.score + 1;
+            console.log('look here', this.score);
             scores.innerText = `Score: ${this.score}`;
+        }
+        else {
+            this.score = 0;
         }
 
     }
@@ -175,13 +180,18 @@ class GameBoard {
         this.p1.state.x == this.p2.state.x
         && this.p1.state.y == this.p2.state.y
     ){
-      // disable event handlers
-      // set color of player 2 to purple
-      this.p2.state.div.classList.add('playerComplete');
-    } else {
-      this.p2.state.div.classList.remove('playerComplete');
+        // disable event handlers
+        this.end = true;
+        this.p2.state.div.classList.add('playerComplete');
+        // trigger animation
+        this.tearDown();
+        this.score = 0; // wtf??
+        }
+    else {
+        this.end = false;
+        this.p2.state.div.classList.remove('playerComplete');
 
-    }
+        }
   }
 
 
@@ -197,22 +207,7 @@ class GameBoard {
     return div;
   }
 
-  createPlayerDiv(player){
-    let div = document.createElement('div');
-    div.classList.add('tall');
-    div.classList.add('player');
-    div.classList.add(`player${player.id}`);
-    players.appendChild(div);
-    player.div = div;
-  }
-
   render() {
-    // init logic
-    // create a randomized grid
-    // pick starting point for blocks
-    // move both blocks from each other randomly
-    // number of moves is dictated by level
-    // perlin noise may be a better method for level building
     for (let i=0; i<this.gridSize; i++){
       for (let j=0; j<this.gridSize; j++){
         // create a new div
@@ -230,7 +225,6 @@ class GameBoard {
           }
           block.div = div;
           if (block.powerup && block.powerup.type === 'transport'){
-            console.log('hello')
             block.div.classList.add('transport');
           }
         }
@@ -250,76 +244,109 @@ class GameBoard {
 
   removeDivsFromParent(className) {
     let divs = document.getElementsByClassName(className);
-    //Array.from(divs).forEach(element => {
-    //  element.parentNode.removeChild(element);
-    //  //console.log(element);
-    //});
+    Array.from(divs).forEach(element => {
+      element.parentNode.removeChild(element);
+      //console.log(element);
+    });
   }
 
   tearDown() {
     //only needs to be called at level end
-
     this.removeDivsFromParent('tall');
-    ;
+    this.removeDivsFromParent('short');
+    this.removeDivsFromParent('players');
   }
 }
 
 
 
-let board = new GameBoard(10, 10);
-// bind event handlers
-
-window.addEventListener("keydown", function(event){
-    if (event.defaultPrevented){
-        return;
+class Level {
+    constructor(level) {
+        var board = new GameBoard(11, 11);
+        this.board = board;
+        this.eventHandler = this.handleEvents();
+        this.bindEventHandlers()
+        this.next = null;
+        this.level = level;
     }
 
-    switch(event.key){
-        case 'ArrowDown':
-            board.setPlayerDir('down');
-            break;
-        case 'ArrowUp':
-            board.setPlayerDir('up');
-            break;
-        case 'ArrowLeft':
-            board.setPlayerDir('left');
-            break;
-        case 'ArrowRight':
-            board.setPlayerDir('right');
-            break;
-        default:
-            return;
+    handleEvents() {
+        let board = this.board;
+        return (function(event) {
+
+            if (event.defaultPrevented){
+                return;
+            }
+
+            switch(event.key){
+                case 'ArrowDown':
+                    board.setPlayerDir('down');
+                    break;
+                case 'ArrowUp':
+                    board.setPlayerDir('up');
+                    break;
+                case 'ArrowLeft':
+                    board.setPlayerDir('left');
+                    break;
+                case 'ArrowRight':
+                    board.setPlayerDir('right');
+                    break;
+                default:
+                    return;
+            }
+
+            event.preventDefault();
+
+        });
     }
 
-    event.preventDefault();
+    bindEventHandlers() {
+        window.addEventListener("keydown", this.eventHandler, true);
+    }
 
-}, true);
+    go() {
 
+        const fps = 30;
+        let fpsInterval = 1000/fps;
+        let tFrame = 0;
+        let board = this.board;
+        let level = this.level;
+        let eventHandler = this.eventHandler;
+        var animationReq;
+        console.log(this.board.score);
+        function main(timestamp) {
+            animationReq = window.requestAnimationFrame(main);
+            let elapsed = timestamp - tFrame;
+            if (elapsed > fpsInterval) {
+                tFrame = timestamp - (elapsed % fpsInterval)  
+                board.render();
+                board.update();
+            }
+        }
 
-function step() {
-  board.render();
+        main();
+        return new Promise(resolve => {
+            (function waitForGameEnd(){
+                if (board.end) {
+                    window.removeEventListener("keydown", eventHandler, true);
+                    //unbindEventHandlers();
+                    window.cancelAnimationFrame(animationReq);
+                    return resolve();
+                }
+                setTimeout(waitForGameEnd, 30);
+            })();
+        })
+       
+    }
 }
 
-
-;(function() {
-
-  const fps = 30;
-  let fpsInterval = 1000/fps;
-  let tFrame = 0;
-
-  function main(timestamp) {
-    window.requestAnimationFrame(main);
-    elapsed = timestamp - tFrame;
-    if (elapsed > fpsInterval) {
-      tFrame = timestamp - (elapsed % fpsInterval)  
-      board.render();
-      board.update();
+async function main() {
+    for (let i=0; i<5; i++) {
+        let level = new Level(i);
+        await level.go();
+        delete level;
     }
-  }
+}
 
-  main();
-
-})();
-
-
+main();
 
