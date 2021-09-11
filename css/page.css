@@ -6,6 +6,14 @@
     color: white;
 }
 
+.popup{
+    position: absolute;
+    z-index: 3;
+    background-color: black;
+}
+
+
+
 #intro {
     right: -2em;
 }

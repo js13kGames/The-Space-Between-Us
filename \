@@ -1,8 +1,6 @@
 var plane = document.getElementById('plane');
 var players = document.getElementById('players');
 var scores = document.getElementById('score');
-var generalMessage = document.getElementById('generalMessage');
-var gameOverMessage = document.getElementById('gameOverMessage');
 
 
 class GameBoard {
@@ -15,7 +13,6 @@ class GameBoard {
         this.p1 = new Player(1);
         this.p2 = new Player(2);
         this.shortIndices = [];
-        //this.grid = this.overrides.grid !== null
         if (!grid) {
             this.grid = this.createGameBoard();
         }
@@ -99,11 +96,11 @@ class GameBoard {
         if (this.start) {
             this.score = this.score + 1;
             console.log('look here', this.score);
+            scores.innerText = `Score: ${this.score}`;
         }
         else {
             this.score = 0;
         }
-        scores.innerText = `Score: ${this.score}`;
 
     }
 
@@ -191,6 +188,7 @@ class GameBoard {
         this.p1.state.x == this.p2.state.x
         && this.p1.state.y == this.p2.state.y
     ){
+        // disable event handlers
         this.end = true;
         this.p2.state.div.classList.add('playerComplete');
         // trigger animation
@@ -199,10 +197,7 @@ class GameBoard {
         }
     else {
         this.end = false;
-        if (this.p2.state.div) {
         this.p2.state.div.classList.remove('playerComplete');
-        }
-        
 
         }
   }
@@ -281,7 +276,6 @@ class Level {
         this.bindEventHandlers()
         this.next = null;
         this.level = level;
-        this.spacePressed = false;
     }
 
     handleEvents() {
@@ -292,7 +286,7 @@ class Level {
                 return;
             }
 
-            switch(event.code){
+            switch(event.key){
                 case 'ArrowDown':
                     board.setPlayerDir('down');
                     break;
@@ -304,10 +298,6 @@ class Level {
                     break;
                 case 'ArrowRight':
                     board.setPlayerDir('right');
-                    break;
-                case 'Space':
-                    console.log('hello');
-                    this.spacePressed = true;
                     break;
                 default:
                     return;
@@ -324,8 +314,6 @@ class Level {
 
     go() {
 
-        generalMessage.style.display = 'block';
-        gameOverMessage.style.display = 'none';
         const fps = 30;
         let fpsInterval = 1000/fps;
         let tFrame = 0;
@@ -333,11 +321,9 @@ class Level {
         let level = this.level;
         let eventHandler = this.eventHandler;
         var animationReq;
-        var self = this;
-        var spacePressed;
         console.log(this.board.score);
-        function loop(timestamp) {
-            animationReq = window.requestAnimationFrame(loop);
+        function main(timestamp) {
+            animationReq = window.requestAnimationFrame(main);
             let elapsed = timestamp - tFrame;
             if (elapsed > fpsInterval) {
                 tFrame = timestamp - (elapsed % fpsInterval)  
@@ -345,43 +331,15 @@ class Level {
                 board.update();
             }
         }
-        
-        // start render loop
-        loop();
 
-        spacePressed = false;
-        let spacePressedHandler = (event) => {
-            if (event.defaultPrevented) {
-                return;
-            }
-            switch(event.code) {
-                case 'Space':
-                    spacePressed = true;
-                    break;
-                default:
-                    return;
-            }
-        }
+        main();
         return new Promise(resolve => {
             (function waitForGameEnd(){
-                // remove game event handlers
-                
                 if (board.end) {
                     window.removeEventListener("keydown", eventHandler, true);
-                    window.addEventListener("keydown", spacePressedHandler, true);
                     //unbindEventHandlers();
-                    // hide general div
-                    generalMessage.style.display = 'none';
-
-                    // show game over div
-                    gameOverMessage.style.display = 'block';
-                     
-                    // if space is pressed return resolve
-                    if (spacePressed) {
-                        window.removeEventListener("keydown", spacePressedHandler, true);
-                        window.cancelAnimationFrame(animationReq);
-                        return resolve();
-                    }
+                    window.cancelAnimationFrame(animationReq);
+                    return resolve();
                 }
                 setTimeout(waitForGameEnd, 30);
             })();
