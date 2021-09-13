@@ -331,9 +331,6 @@ class Level {
                 return resolve();
             }
         }
-        else {
-            this.spacePressed = false;
-        }
     }
 
 
@@ -374,7 +371,6 @@ async function main() {
             message: "Use the arrow keys to move the blue and red square"
         },
         1: {
-            grid: GameBoard.createEmptyGrid(17),
             message: "Use the static blocks to align the blocks",
             initBlockProb: 0
         },
@@ -387,7 +383,7 @@ async function main() {
         0: GameBoard.createEmptyGrid(17),
         1: GameBoard.createEmptyGrid(17),
     }
-    for (let i=0; i<10; i++) {
+    for (let i=0; i<5; i++) {
         let level;
         if (i in levelConfigs) {
             level = new Level(i, levelConfigs[i]);
