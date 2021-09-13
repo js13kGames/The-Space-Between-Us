@@ -373,12 +373,12 @@ async function main() {
             grid: GameBoard.createEmptyGrid(17),
             message: "Use the arrow keys to move the blue and red square"
         },
-        1: {
-            grid: GameBoard.createEmptyGrid(17),
+        2: {
             message: "Use the static blocks to align the blocks",
             initBlockProb: 0
         },
-        2: {
+        1: {
+            grid: GameBoard.createEmptyGrid(17),
             message: "Press Space on a purple block to teleport",
             initBlockProb: 10
         }
