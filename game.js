@@ -15,7 +15,6 @@ class GameBoard {
         this.p1 = new Player(1);
         this.p2 = new Player(2);
         this.shortIndices = [];
-        //this.grid = this.overrides.grid !== null
         if (!grid) {
             this.grid = this.createGameBoard();
         }
@@ -25,21 +24,13 @@ class GameBoard {
         this.getPlayerInitialPos();
         this.start = true;
         this.end = false;
+        this.powerups = [];
+        let powerup = new TransportationPowerup(this.p1, this.p2, this.grid);
+        this.powerups.push(powerup);
+        console.log(this.powerups[0]);
+        this.spacePressed = false;
     }
-
-    createPlayer(id) {
-        return {
-          id: id,
-          x: null,
-          y: null,
-          dir: null,
-          div: null,
-          translateX: 0,
-          translateY: 0,
-          translateZ: 0
-        }
-    }
-
+    
 
     computeL1Distance(pointA, pointB){
         return Math.abs(pointA.x - pointB.x) + Math.abs(pointA.y - pointB.y)
@@ -82,6 +73,9 @@ class GameBoard {
     }
 
     setPlayerDir(dir){
+        if (this.end) {
+            return;
+        }
         this.p1.state.dir = dir;
         if (dir === 'up') {
             this.p2.state.dir = 'down';
@@ -106,21 +100,14 @@ class GameBoard {
 
     }
 
-  teleportPowerUp(){
-    ;
-  }
 
-  reverseDirectionPowerUp(){
-    ;
-  }
-
-  checkPositionAvailability(probability, coords){
-    return (
-      Math.random() < probability
-      && !this.p1.detectOverlap(coords)
-      && !this.p2.detectOverlap(coords)
-    )
-  }
+    checkPlayerOverlap(probability, coords){
+        return (
+            Math.random() < probability
+            && !this.p1.detectOverlap(coords)
+            && !this.p2.detectOverlap(coords)
+        )
+    }
 
 
     static createEmptyGrid(gridSize) {
@@ -163,25 +150,24 @@ class GameBoard {
                         || k === max
                     ) {
                         let prob = 20 + i*(Math.log(90/n_kernels));
-                        if (this.checkPositionAvailability(prob/100, {x: j, y: k})) {
+                        if (this.checkPlayerOverlap(prob/100, {x: j, y: k})) {
                             let block = grid[j][k]
                             block.height = 1;
                             block.init_height = 10;
                         }
                     }
                 }
-            } 
+            }
         }
          
     return grid;
     }
   
-    detectOverlap(pos, player){
-        if (pos.x === player.x && pos.y === player.y){
-            return true;
-        } else {
-            return false;
-        }
+    detectOverlap(pos1, pos2){
+        return (
+            pos1.x === pos2.x
+            && pos1.y === pos2.y
+        )
     }
 
   handleLevelEnd(){
@@ -191,14 +177,11 @@ class GameBoard {
     ){
         this.end = true;
         this.p2.state.div.classList.add('playerComplete');
-        // trigger animation
-        this.tearDown();
         this.score = 0; // wtf??
         }
     else {
         this.end = false;
         this.p2.state.div.classList.remove('playerComplete');
-        
 
         }
   }
@@ -226,14 +209,12 @@ class GameBoard {
           plane.appendChild(div);
           if (block.x == this.p1.state.x && block.y == this.p1.state.y && !this.p1.state.div) {
               this.p1.createPlayerDiv();
-            //this.createPlayerDiv(this.p1);
           }
           else if (block.x == this.p2.state.x && block.y == this.p2.state.y && !this.p2.state.div) {
               this.p2.createPlayerDiv();
-            //this.createPlayerDiv(this.p2);
           }
           block.div = div;
-          if (block.powerup && block.powerup.type === 'transport'){
+          if (block.powerup){
             block.div.classList.add('transport');
           }
         }
@@ -245,37 +226,29 @@ class GameBoard {
     }
   }
 
-  update() {
-    this.p1.movePlayer(this.grid, this.gridSize);
-    this.p2.movePlayer(this.grid, this.gridSize);
-    this.handleLevelEnd();
-  }
+    update() {
+        this.p1.movePlayer(this.grid, this.gridSize);
+        this.p2.movePlayer(this.grid, this.gridSize);
+        this.powerups.forEach((element) => {element.update(this.spacePressed, [this.p1, this.p2])})
+        this.handleLevelEnd();
+        this.spacePressed = false;
+    }
 
-  removeDivsFromParent(className) {
-    let divs = document.getElementsByClassName(className);
-    Array.from(divs).forEach(element => {
-      element.parentNode.removeChild(element);
-    });
-  }
-
-  tearDown() {
-    //only needs to be called at level end
-    this.removeDivsFromParent('tall');
-    this.removeDivsFromParent('short');
-    this.removeDivsFromParent('players');
-  }
 }
 
 
 
 class Level {
     constructor(level, gridOverride) {
+        generalMessage.style.display = 'block';
+        gameOverMessage.style.display = 'none';
         this.board = new GameBoard(17, gridOverride);
         this.eventHandler = this.handleEvents(this);
         this.bindEventHandlers()
         this.next = null;
         this.level = level;
         this.spacePressed = false;
+        this.interval = null;
     }
 
     handleEvents(obj) {
@@ -301,6 +274,7 @@ class Level {
                     break;
                 case 'Space':
                     obj.spacePressed = true;
+                    board.spacePressed = true;
                     break;
                 default:
                     return;
@@ -309,6 +283,20 @@ class Level {
             event.preventDefault();
 
         });
+    }
+
+
+    tearDown() {
+        let removeDivsFromParent = (className) => {
+            let divs = document.getElementsByClassName(className);
+            Array.from(divs).forEach(element => {
+              element.parentNode.removeChild(element);
+            });
+        }
+        //only needs to be called at level end
+        removeDivsFromParent('tall');
+        removeDivsFromParent('short');
+        removeDivsFromParent('players');
     }
 
     bindEventHandlers() {
@@ -330,6 +318,7 @@ class Level {
             // if space is pressed return resolve
             if (this.spacePressed) {
                 this.unbindEventHandlers();
+                this.tearDown();
                 window.cancelAnimationFrame(animationReq);
                 this.spacePressed = false;
                 return resolve();
@@ -340,8 +329,6 @@ class Level {
 
     go() {
 
-        generalMessage.style.display = 'block';
-        gameOverMessage.style.display = 'none';
         const fps = 30;
         let fpsInterval = 1000/fps;
         let tFrame = 0;
@@ -363,7 +350,7 @@ class Level {
         // return a promise that resolves once the level ends
         return new Promise(resolve => {
             
-            setInterval(() => {
+            this.interval = setInterval(() => {
                 this.onGameEnd(resolve, animationReq)
             }, 30);
         })
@@ -374,21 +361,27 @@ async function main() {
     levelCofigs = {
         0: {
             grid: GameBoard.createEmptyGrid(17),
-            message: "doo doo"
+            message: "Use the arrow keys to move the blue square"
+        },
+        1: {
+            grid: GameBoard.createEmptyGrid(17),
+            message: "Press space on a purple block to teleport"
         }
     }
     gridOverrides = {
         0: GameBoard.createEmptyGrid(17),
+        1: GameBoard.createEmptyGrid(17),
     }
     for (let i=0; i<5; i++) {
         let level;
         if (i in gridOverrides) {
-            level = new Level(i, gridOverrides[0]);
+            level = new Level(i, gridOverrides[i]);
         }
         else {
             level = new Level(i);
         }
         await level.go();
+        clearInterval(level.interval);
     }
 }
 
